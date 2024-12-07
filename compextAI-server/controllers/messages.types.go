@@ -6,7 +6,7 @@ type CreateMessageRequest struct {
 }
 
 type CreateMessage struct {
-	Content  string                 `json:"content"`
+	Content  interface{}            `json:"content"`
 	Role     string                 `json:"role"`
 	Metadata map[string]interface{} `json:"metadata"`
 }

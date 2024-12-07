@@ -73,10 +73,18 @@ func ExecuteThread(db *gorm.DB, req *ExecuteThreadRequest) (interface{}, error) 
 	// add a execution message to the thread
 	// this is used to identify the thread execution in the thread messages
 	if req.ThreadID != constants.THREAD_IDENTIFIER_FOR_NULL_THREAD {
+		contentMap := map[string]interface{}{
+			"content": threadExecution.Identifier,
+		}
+		contentJsonBlob, err := json.Marshal(contentMap)
+		if err != nil {
+			logger.GetLogger().Errorf("Error marshalling execution message content: %v", err)
+			return nil, err
+		}
 		if err := models.CreateMessage(db, &models.Message{
-			ThreadID: req.ThreadID,
-			Role:     "execution",
-			Content:  threadExecution.Identifier,
+			ThreadID:   req.ThreadID,
+			Role:       "execution",
+			ContentMap: contentJsonBlob,
 		}); err != nil {
 			logger.GetLogger().Errorf("Error creating execution message: %v", err)
 			return nil, err
@@ -158,10 +166,10 @@ func handleThreadExecutionSuccess(db *gorm.DB, p chat.ChatCompletionsProvider, t
 		logger.GetLogger().Infof("Appending assistant response")
 
 		if err := models.CreateMessage(db, &models.Message{
-			ThreadID: threadExecution.ThreadID,
-			Role:     message.Role,
-			Content:  message.Content,
-			Metadata: message.Metadata,
+			ThreadID:   threadExecution.ThreadID,
+			Role:       message.Role,
+			ContentMap: message.ContentMap,
+			Metadata:   message.Metadata,
 		}); err != nil {
 			logger.GetLogger().Errorf("Error creating assistant message: %v", err)
 			handleThreadExecutionError(db, threadExecution, fmt.Errorf("error creating assistant message: %v", err))
@@ -171,6 +179,23 @@ func handleThreadExecutionSuccess(db *gorm.DB, p chat.ChatCompletionsProvider, t
 		}
 	}
 
+	var contentMap map[string]interface{}
+	if err := json.Unmarshal(message.ContentMap, &contentMap); err != nil {
+		logger.GetLogger().Errorf("Error unmarshalling content map: %v", err)
+		return
+	}
+	outputContent, ok := contentMap["content"]
+	if !ok {
+		logger.GetLogger().Errorf("Content map does not contain 'content' key")
+		return
+	}
+
+	outputContentString, ok := outputContent.(string)
+	if !ok {
+		logger.GetLogger().Errorf("Content is not a string")
+		return
+	}
+
 	updatedThreadExecution := models.ThreadExecution{
 		Base: models.Base{
 			ID:         threadExecution.ID,
@@ -178,7 +203,7 @@ func handleThreadExecutionSuccess(db *gorm.DB, p chat.ChatCompletionsProvider, t
 		},
 		Status:                    models.ThreadExecutionStatus_COMPLETED,
 		Output:                    responseJson,
-		Content:                   message.Content,
+		Content:                   outputContentString,
 		Role:                      message.Role,
 		ExecutionResponseMetadata: message.Metadata,
 	}

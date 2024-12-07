@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/burnerlee/compextAI/controllers"
@@ -53,7 +54,16 @@ func (s *Server) ListMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	responses.JSON(w, http.StatusOK, messages)
+	messagesResponse := []*messageResponse{}
+	for _, message := range messages {
+		messageResponse, err := convertMessageModelToResponse(message)
+		if err != nil {
+			responses.Error(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		messagesResponse = append(messagesResponse, messageResponse)
+	}
+	responses.JSON(w, http.StatusOK, messagesResponse)
 }
 
 func (s *Server) CreateMessage(w http.ResponseWriter, r *http.Request) {
@@ -141,7 +151,13 @@ func (s *Server) GetMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	responses.JSON(w, http.StatusOK, message)
+	messageResponse, err := convertMessageModelToResponse(message)
+	if err != nil {
+		responses.Error(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	responses.JSON(w, http.StatusOK, messageResponse)
 }
 
 func (s *Server) UpdateMessage(w http.ResponseWriter, r *http.Request) {
@@ -185,20 +201,34 @@ func (s *Server) UpdateMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	contentMap := map[string]interface{}{
+		"content": message.Content,
+	}
+	contentJsonBlob, err := json.Marshal(contentMap)
+	if err != nil {
+		responses.Error(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	updatedMessage, err := models.UpdateMessage(s.DB, &models.Message{
 		Base: models.Base{
 			Identifier: messageID,
 		},
-		Content:  message.Content,
-		Role:     message.Role,
-		Metadata: metadataJsonBlob,
+		ContentMap: contentJsonBlob,
+		Role:       message.Role,
+		Metadata:   metadataJsonBlob,
 	})
 	if err != nil {
 		responses.Error(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	responses.JSON(w, http.StatusOK, updatedMessage)
+	updatedMessageResponse, err := convertMessageModelToResponse(updatedMessage)
+	if err != nil {
+		responses.Error(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	responses.JSON(w, http.StatusOK, updatedMessageResponse)
 }
 
 func (s *Server) DeleteMessage(w http.ResponseWriter, r *http.Request) {
@@ -231,4 +261,26 @@ func (s *Server) DeleteMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	responses.JSON(w, http.StatusNoContent, "message deleted successfully")
+}
+
+func convertMessageModelToResponse(message *models.Message) (*messageResponse, error) {
+	content := map[string]interface{}{}
+	if err := json.Unmarshal(message.ContentMap, &content); err != nil {
+		return nil, err
+	}
+
+	contentMsg, ok := content["content"]
+	if !ok {
+		return nil, errors.New("content is required")
+	}
+	messagesResponse := &messageResponse{
+		Content:    contentMsg,
+		ThreadID:   message.ThreadID,
+		Identifier: message.Identifier,
+		Role:       message.Role,
+		Metadata:   message.Metadata,
+		CreatedAt:  message.CreatedAt,
+		UpdatedAt:  message.UpdatedAt,
+	}
+	return messagesResponse, nil
 }

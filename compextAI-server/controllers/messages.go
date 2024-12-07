@@ -30,11 +30,20 @@ func CreateMessages(db *gorm.DB, req *CreateMessageRequest) ([]*models.Message, 
 			return nil, fmt.Errorf("failed to marshal metadata: %w", err)
 		}
 
+		contentMap := map[string]interface{}{
+			"content": message.Content,
+		}
+		contentJsonBlob, err := json.Marshal(contentMap)
+		if err != nil {
+			tx.Rollback()
+			return nil, fmt.Errorf("failed to marshal content: %w", err)
+		}
+
 		message := &models.Message{
-			ThreadID: req.ThreadID,
-			Content:  message.Content,
-			Role:     message.Role,
-			Metadata: metadataJsonBlob,
+			ThreadID:   req.ThreadID,
+			ContentMap: contentJsonBlob,
+			Role:       message.Role,
+			Metadata:   metadataJsonBlob,
 		}
 
 		if err := models.CreateMessage(tx, message); err != nil {

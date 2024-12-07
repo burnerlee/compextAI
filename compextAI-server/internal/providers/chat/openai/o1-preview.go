@@ -1,6 +1,9 @@
 package openai
 
 import (
+	"encoding/json"
+
+	"github.com/burnerlee/compextAI/internal/logger"
 	"github.com/burnerlee/compextAI/models"
 	"gorm.io/gorm"
 )
@@ -57,7 +60,11 @@ func (g *O1Preview) ConvertExecutionResponseToMessage(response interface{}) (*mo
 }
 
 func (g *O1Preview) ExecuteThread(db *gorm.DB, user *models.User, messages []*models.Message, threadExecutionParamsTemplate *models.ThreadExecutionParamsTemplate, threadExecutionIdentifier string) (int, interface{}, error) {
-	messages = handleSystemPromptForO1(messages, threadExecutionParamsTemplate)
+	messages, err := handleSystemPromptForO1(messages, threadExecutionParamsTemplate)
+	if err != nil {
+		logger.GetLogger().Errorf("Error handling system prompt for o1: %v", err)
+		return -1, nil, err
+	}
 
 	return executeThread(db, user, messages, threadExecutionParamsTemplate, threadExecutionIdentifier, &executeParamConfigs{
 		Model:                      g.model,
@@ -68,20 +75,32 @@ func (g *O1Preview) ExecuteThread(db *gorm.DB, user *models.User, messages []*mo
 	})
 }
 
-func handleSystemPromptForO1(messages []*models.Message, threadExecutionParamsTemplate *models.ThreadExecutionParamsTemplate) []*models.Message {
+func handleSystemPromptForO1(messages []*models.Message, threadExecutionParamsTemplate *models.ThreadExecutionParamsTemplate) ([]*models.Message, error) {
 	// o1 models don't support system prompts, so we need to handle it here
 	messages = filterNonSystemMessages(messages)
 
-	systemPrompt := getSystemPrompt(messages, threadExecutionParamsTemplate)
+	systemPrompt, err := getSystemPrompt(messages, threadExecutionParamsTemplate)
+	if err != nil {
+		logger.GetLogger().Errorf("Error getting system prompt: %v", err)
+		return nil, err
+	}
 
+	contentMap := map[string]interface{}{
+		"content": systemPrompt,
+	}
+	contentMapJson, err := json.Marshal(contentMap)
+	if err != nil {
+		logger.GetLogger().Errorf("Error marshalling content map: %v", err)
+		return nil, err
+	}
 	if systemPrompt != "" {
 		messages = append([]*models.Message{{
-			Role:    "user",
-			Content: systemPrompt,
+			Role:       "user",
+			ContentMap: contentMapJson,
 		}}, messages...)
 	}
 
 	threadExecutionParamsTemplate.SystemPrompt = ""
 
-	return messages
+	return messages, nil
 }

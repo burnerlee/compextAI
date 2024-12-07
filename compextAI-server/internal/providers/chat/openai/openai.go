@@ -17,8 +17,8 @@ var (
 )
 
 func validateMessage(message *models.Message) error {
-	if message.Content == "" {
-		return fmt.Errorf("message content is empty")
+	if message.ContentMap == nil {
+		return fmt.Errorf("message content map is nil")
 	}
 
 	if !slices.Contains(openaiAllowedRoles, message.Role) {
@@ -29,7 +29,7 @@ func validateMessage(message *models.Message) error {
 
 type openaiMessage struct {
 	Role     string                 `json:"role"`
-	Content  string                 `json:"content"`
+	Content  interface{}            `json:"content"`
 	Metadata map[string]interface{} `json:"metadata"`
 }
 
@@ -41,9 +41,18 @@ func convertMessageToProviderFormat(message *models.Message) (interface{}, error
 		}
 	}
 
+	var contentMap map[string]interface{}
+	if err := json.Unmarshal(message.ContentMap, &contentMap); err != nil {
+		return nil, err
+	}
+	content, ok := contentMap["content"]
+	if !ok {
+		return nil, fmt.Errorf("content map does not contain 'content' key")
+	}
+
 	return openaiMessage{
 		Role:     message.Role,
-		Content:  message.Content,
+		Content:  content,
 		Metadata: metadata,
 	}, nil
 }
@@ -83,10 +92,18 @@ func convertExecutionResponseToMessage(response interface{}) (*models.Message, e
 		return nil, err
 	}
 
+	contentMap := map[string]interface{}{
+		"content": content,
+	}
+	contentMapJson, err := json.Marshal(contentMap)
+	if err != nil {
+		return nil, err
+	}
+
 	return &models.Message{
-		Role:     role,
-		Content:  content,
-		Metadata: metadataJson,
+		Role:       role,
+		ContentMap: contentMapJson,
+		Metadata:   metadataJson,
 	}, nil
 }
 
@@ -112,9 +129,9 @@ type executeParamConfigs struct {
 	DefaultTimeout             int
 }
 
-func getSystemPrompt(messages []*models.Message, threadExecutionParamsTemplate *models.ThreadExecutionParamsTemplate) string {
+func getSystemPrompt(messages []*models.Message, threadExecutionParamsTemplate *models.ThreadExecutionParamsTemplate) (string, error) {
 	if threadExecutionParamsTemplate.SystemPrompt != "" {
-		return threadExecutionParamsTemplate.SystemPrompt
+		return threadExecutionParamsTemplate.SystemPrompt, nil
 	}
 
 	systemPrompt := ""
@@ -122,10 +139,24 @@ func getSystemPrompt(messages []*models.Message, threadExecutionParamsTemplate *
 	// find the last system message and use it as the system prompt
 	for _, message := range messages {
 		if message.Role == "system" {
-			systemPrompt = message.Content
+			var contentMap map[string]interface{}
+			if err := json.Unmarshal(message.ContentMap, &contentMap); err != nil {
+				return "", err
+			}
+			content, ok := contentMap["content"]
+			if !ok {
+				logger.GetLogger().Errorf("System message content map does not contain 'content' key")
+				return "", fmt.Errorf("system message content map does not contain 'content' key")
+			}
+			contentStr, ok := content.(string)
+			if !ok {
+				logger.GetLogger().Errorf("System message content is not a string")
+				return "", fmt.Errorf("system message content is not a string")
+			}
+			systemPrompt = contentStr
 		}
 	}
-	return systemPrompt
+	return systemPrompt, nil
 }
 
 func filterNonSystemMessages(messages []*models.Message) []*models.Message {
@@ -149,7 +180,21 @@ func executeThread(db *gorm.DB, user *models.User, messages []*models.Message, t
 			return -1, nil, err
 		}
 		if message.Role == "system" {
-			systemPrompt = message.Content
+			var contentMap map[string]interface{}
+			if err := json.Unmarshal(message.ContentMap, &contentMap); err != nil {
+				return -1, nil, err
+			}
+			content, ok := contentMap["content"]
+			if !ok {
+				logger.GetLogger().Errorf("System message content map does not contain 'content' key")
+				return -1, nil, fmt.Errorf("system message content map does not contain 'content' key")
+			}
+			systemPromptStr, ok := content.(string)
+			if !ok {
+				logger.GetLogger().Errorf("System message content is not a string")
+				return -1, nil, fmt.Errorf("system message content is not a string")
+			}
+			systemPrompt = systemPromptStr
 			continue
 		}
 		modelMessages = append(modelMessages, modelMessage.(openaiMessage))

@@ -52,7 +52,7 @@ func (g *Claude35) GetProviderIdentifier() string {
 }
 
 func (g *Claude35) ValidateMessage(message *models.Message) error {
-	if message.Content == "" {
+	if message.ContentMap == nil {
 		return fmt.Errorf("message content is empty")
 	}
 
@@ -63,15 +63,22 @@ func (g *Claude35) ValidateMessage(message *models.Message) error {
 }
 
 type claude35Message struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role    string      `json:"role"`
+	Content interface{} `json:"content"`
 }
 
 func (g *Claude35) ConvertMessageToProviderFormat(message *models.Message) (interface{}, error) {
-
+	var contentMap map[string]interface{}
+	if err := json.Unmarshal(message.ContentMap, &contentMap); err != nil {
+		return nil, err
+	}
+	content, ok := contentMap["content"]
+	if !ok {
+		return nil, fmt.Errorf("content map does not contain 'content' key")
+	}
 	return claude35Message{
 		Role:    message.Role,
-		Content: message.Content,
+		Content: content,
 	}, nil
 }
 
@@ -110,10 +117,19 @@ func (g *Claude35) ConvertExecutionResponseToMessage(response interface{}) (*mod
 		return nil, err
 	}
 
+	contentMap := map[string]interface{}{
+		"content": content,
+	}
+	contentMapJson, err := json.Marshal(contentMap)
+	if err != nil {
+		logger.GetLogger().Errorf("Error marshalling content map: %v", err)
+		return nil, fmt.Errorf("error marshalling content map: %v", err)
+	}
+
 	return &models.Message{
-		Role:     role,
-		Content:  content,
-		Metadata: metadataJson,
+		Role:       role,
+		ContentMap: contentMapJson,
+		Metadata:   metadataJson,
 	}, nil
 }
 
@@ -142,8 +158,23 @@ func (g *Claude35) ExecuteThread(db *gorm.DB, user *models.User, messages []*mod
 			logger.GetLogger().Errorf("Error converting message to provider format: %v", err)
 			return -1, nil, err
 		}
+		var contentMap map[string]interface{}
+		if err := json.Unmarshal(message.ContentMap, &contentMap); err != nil {
+			logger.GetLogger().Errorf("Error unmarshalling content map: %v", err)
+			return -1, nil, err
+		}
+		content, ok := contentMap["content"]
+		if !ok {
+			logger.GetLogger().Errorf("Content map does not contain 'content' key")
+			return -1, nil, fmt.Errorf("content map does not contain 'content' key")
+		}
 		if message.Role == "system" {
-			systemPrompt = message.Content
+			systemPromptStr, ok := content.(string)
+			if !ok {
+				logger.GetLogger().Errorf("System message content is not a string")
+				return -1, nil, fmt.Errorf("system message content is not a string")
+			}
+			systemPrompt = systemPromptStr
 			continue
 		}
 		modelMessages = append(modelMessages, modelMessage.(claude35Message))

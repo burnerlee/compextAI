@@ -1,6 +1,7 @@
 package openai
 
 import (
+	"github.com/burnerlee/compextAI/internal/logger"
 	"github.com/burnerlee/compextAI/models"
 	"gorm.io/gorm"
 )
@@ -58,7 +59,11 @@ func (g *O1Mini) ConvertExecutionResponseToMessage(response interface{}) (*model
 
 func (g *O1Mini) ExecuteThread(db *gorm.DB, user *models.User, messages []*models.Message, threadExecutionParamsTemplate *models.ThreadExecutionParamsTemplate, threadExecutionIdentifier string) (int, interface{}, error) {
 	// o1 models don't support system prompts, so we need to handle it here
-	messages = handleSystemPromptForO1(messages, threadExecutionParamsTemplate)
+	messages, err := handleSystemPromptForO1(messages, threadExecutionParamsTemplate)
+	if err != nil {
+		logger.GetLogger().Errorf("Error handling system prompt for o1: %v", err)
+		return -1, nil, err
+	}
 
 	return executeThread(db, user, messages, threadExecutionParamsTemplate, threadExecutionIdentifier, &executeParamConfigs{
 		Model:                      g.model,

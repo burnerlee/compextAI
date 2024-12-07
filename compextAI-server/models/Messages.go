@@ -11,11 +11,12 @@ import (
 
 type Message struct {
 	Base
-	Content  string          `json:"content" gorm:"not null"`
-	Role     string          `json:"role" gorm:"not null"`
-	ThreadID string          `json:"thread_id" gorm:"not null;index"`
-	Thread   Thread          `json:"thread" gorm:"foreignKey:ThreadID;references:Identifier"`
-	Metadata json.RawMessage `json:"metadata" gorm:"type:jsonb;default:'{}'"`
+	ContentMap json.RawMessage `json:"content_map" gorm:"not null;type:jsonb;default:'{}'"`
+	Content    string          `json:"content""`
+	Role       string          `json:"role" gorm:"not null"`
+	ThreadID   string          `json:"thread_id" gorm:"not null;index"`
+	Thread     Thread          `json:"thread" gorm:"foreignKey:ThreadID;references:Identifier"`
+	Metadata   json.RawMessage `json:"metadata" gorm:"type:jsonb;default:'{}'"`
 
 	// Implement support for tool calls and function calls later on
 	// ToolCalls []ToolCall        `json:"tool_calls"`
@@ -62,8 +63,8 @@ func UpdateMessage(db *gorm.DB, message *Message) (*Message, error) {
 	if message.Metadata != nil {
 		updateData["metadata"] = message.Metadata
 	}
-	if message.Content != "" {
-		updateData["content"] = message.Content
+	if message.ContentMap != nil {
+		updateData["content_map"] = message.ContentMap
 	}
 	if err := db.Model(&Message{}).Where("identifier = ?", message.Identifier).Updates(updateData).Error; err != nil {
 		return nil, err

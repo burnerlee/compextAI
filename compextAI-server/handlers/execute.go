@@ -177,13 +177,36 @@ func (s *Server) ExecuteThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	threadMessages := []*models.Message{}
+	for _, message := range request.Messages {
+		messageMetadataJson, err := json.Marshal(message.Metadata)
+		if err != nil {
+			responses.Error(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		messageContent := map[string]interface{}{
+			"content": message.Content,
+		}
+		messageContentJson, err := json.Marshal(messageContent)
+		if err != nil {
+			responses.Error(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		threadMessages = append(threadMessages, &models.Message{
+			ContentMap: messageContentJson,
+			Role:       message.Role,
+			Metadata:   messageMetadataJson,
+		})
+	}
 	threadExecution, err := controllers.ExecuteThread(s.DB, &controllers.ExecuteThreadRequest{
 		UserID:                         uint(userID),
 		ThreadID:                       threadID,
 		ThreadExecutionParamTemplateID: threadExecutionParam.TemplateID,
 		AppendAssistantResponse:        request.AppendAssistantResponse,
 		ThreadExecutionSystemPrompt:    request.ThreadExecutionSystemPrompt,
-		Messages:                       request.Messages,
+		Messages:                       threadMessages,
 		FetchMessagesFromThread:        true,
 		ProjectID:                      threadExecutionParam.ProjectID,
 		Metadata:                       metadataJson,

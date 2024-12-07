@@ -4,13 +4,12 @@ import (
 	"fmt"
 
 	"github.com/burnerlee/compextAI/constants"
-	"github.com/burnerlee/compextAI/models"
 )
 
 type ExecuteThreadRequest struct {
 	ThreadExecutionParamID string `json:"thread_execution_param_id"`
 	// messages to execute the thread with - overrides the thread messages
-	Messages                    []*models.Message      `json:"messages"`
+	Messages                    []*createMessage       `json:"messages"`
 	ThreadExecutionSystemPrompt string                 `json:"thread_execution_system_prompt"`
 	AppendAssistantResponse     bool                   `json:"append_assistant_response"`
 	Metadata                    map[string]interface{} `json:"metadata"`
