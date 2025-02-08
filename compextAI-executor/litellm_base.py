@@ -29,6 +29,13 @@ def get_model_list(api_keys:dict):
         }
     },
     {
+        "model_name": "o3-mini",
+        "litellm_params": {
+            "model": "o3-mini",
+            "api_key": api_keys.get("openai", "")
+        }
+    },
+    {
         "model_name": "o1-preview",
         "litellm_params": {
             "model": "o1-preview",
