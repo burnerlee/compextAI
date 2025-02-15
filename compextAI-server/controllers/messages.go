@@ -22,6 +22,14 @@ func CreateMessages(db *gorm.DB, req *CreateMessageRequest) ([]*models.Message, 
 		return nil, fmt.Errorf("failed to begin transaction: %w", tx.Error)
 	}
 
+	reqJsonBlob, err := json.Marshal(req)
+	if err != nil {
+		tx.Rollback()
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	fmt.Println("reqJsonBlob: ", string(reqJsonBlob))
+
 	var messages []*models.Message
 	for _, message := range req.Messages {
 		metadataJsonBlob, err := json.Marshal(message.Metadata)
