@@ -49,15 +49,15 @@ def get_model_list(api_keys:dict):
             "api_key": api_keys.get("openai", "")
         }
     },
-    {
-        "model_name": "gpt-4o",
-        "litellm_params": {
-            "model": "azure/gpt-4o",
-            "api_key": api_keys.get("azure", ""),
-            "api_base": api_keys.get("azure_endpoint", ""),
-            "api_version": AZURE_VERSION
-        }
-    },
+    # {
+    #     "model_name": "gpt-4o",
+    #     "litellm_params": {
+    #         "model": "azure/gpt-4o",
+    #         "api_key": api_keys.get("azure", ""),
+    #         "api_base": api_keys.get("azure_endpoint", ""),
+    #         "api_version": AZURE_VERSION
+    #     }
+    # },
     {
         "model_name": "gpt-4o",
         "litellm_params": {
@@ -65,13 +65,13 @@ def get_model_list(api_keys:dict):
             "api_key": api_keys.get("openai", "")
         }
     },
-    {
-        "model_name": "claude-3-5-sonnet",
-        "litellm_params": {
-            "model": "vertex_ai/claude-3-5-sonnet-v2@20241022",
-            "vertex_credentials": json.dumps(api_keys.get("google_service_account_creds", {})),
-        }
-    },
+    # {
+    #     "model_name": "claude-3-5-sonnet",
+    #     "litellm_params": {
+    #         "model": "vertex_ai/claude-3-5-sonnet-v2@20241022",
+    #         "vertex_credentials": json.dumps(api_keys.get("google_service_account_creds", {})),
+    #     }
+    # },
     {
         "model_name": "claude-3-5-sonnet",
         "litellm_params": {
@@ -139,6 +139,7 @@ def chat_completion(api_keys:dict, model_name:str, messages:list, temperature:fl
         model=model_name,
         messages=messages,
         temperature=temperature,
+        num_retries=3,
         timeout=timeout,
         max_completion_tokens=max_completion_tokens if max_completion_tokens else None,
         response_format=response_format if response_format else None,
