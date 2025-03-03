@@ -65,4 +65,4 @@ thread_execution_result: dict = compextExecution.get_thread_execution_response(
     thread_execution_id=thread_execution.thread_execution_id
 )
 
-print(thread_execution_result['content'])
+# print(thread_execution_result['content'])

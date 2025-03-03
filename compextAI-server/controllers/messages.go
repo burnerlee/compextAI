@@ -22,6 +22,14 @@ func CreateMessages(db *gorm.DB, req *CreateMessageRequest) ([]*models.Message, 
 		return nil, fmt.Errorf("failed to begin transaction: %w", tx.Error)
 	}
 
+	reqJsonBlob, err := json.Marshal(req)
+	if err != nil {
+		tx.Rollback()
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	fmt.Println("reqJsonBlob: ", string(reqJsonBlob))
+
 	var messages []*models.Message
 	for _, message := range req.Messages {
 		metadataJsonBlob, err := json.Marshal(message.Metadata)
@@ -39,11 +47,26 @@ func CreateMessages(db *gorm.DB, req *CreateMessageRequest) ([]*models.Message, 
 			return nil, fmt.Errorf("failed to marshal content: %w", err)
 		}
 
+		toolCallsJsonBlob, err := json.Marshal(message.ToolCalls)
+		if err != nil {
+			tx.Rollback()
+			return nil, fmt.Errorf("failed to marshal tool calls: %w", err)
+		}
+
+		functionCallJsonBlob, err := json.Marshal(message.FunctionCall)
+		if err != nil {
+			tx.Rollback()
+			return nil, fmt.Errorf("failed to marshal function call: %w", err)
+		}
+
 		message := &models.Message{
-			ThreadID:   req.ThreadID,
-			ContentMap: contentJsonBlob,
-			Role:       message.Role,
-			Metadata:   metadataJsonBlob,
+			ThreadID:     req.ThreadID,
+			ContentMap:   contentJsonBlob,
+			Role:         message.Role,
+			Metadata:     metadataJsonBlob,
+			ToolCallID:   message.ToolCallID,
+			ToolCalls:    toolCallsJsonBlob,
+			FunctionCall: functionCallJsonBlob,
 		}
 
 		if err := models.CreateMessage(tx, message); err != nil {

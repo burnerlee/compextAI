@@ -7,19 +7,25 @@ import (
 )
 
 type messageResponse struct {
-	Identifier string          `json:"identifier"`
-	Content    interface{}     `json:"content"`
-	Role       string          `json:"role"`
-	ThreadID   string          `json:"thread_id"`
-	Metadata   json.RawMessage `json:"metadata"`
-	CreatedAt  time.Time       `json:"created_at"`
-	UpdatedAt  time.Time       `json:"updated_at"`
+	Identifier   string          `json:"identifier"`
+	Content      interface{}     `json:"content"`
+	Role         string          `json:"role"`
+	ToolCallID   string          `json:"tool_call_id"`
+	ThreadID     string          `json:"thread_id"`
+	Metadata     json.RawMessage `json:"metadata"`
+	CreatedAt    time.Time       `json:"created_at"`
+	UpdatedAt    time.Time       `json:"updated_at"`
+	ToolCalls    interface{}     `json:"tool_calls"`
+	FunctionCall interface{}     `json:"function_call"`
 }
 
 type createMessage struct {
-	Content  interface{}            `json:"content"`
-	Role     string                 `json:"role"`
-	Metadata map[string]interface{} `json:"metadata"`
+	Content      interface{}            `json:"content"`
+	Role         string                 `json:"role"`
+	ToolCallID   string                 `json:"tool_call_id"`
+	Metadata     map[string]interface{} `json:"metadata"`
+	ToolCalls    interface{}            `json:"tool_calls"`
+	FunctionCall interface{}            `json:"function_call"`
 }
 
 func (m *createMessage) Validate() error {
@@ -50,9 +56,12 @@ func (r *CreateMessageRequest) Validate() error {
 }
 
 type UpdateMessageRequest struct {
-	Content  interface{}            `json:"content"`
-	Role     string                 `json:"role"`
-	Metadata map[string]interface{} `json:"metadata"`
+	Content      interface{}            `json:"content"`
+	Role         string                 `json:"role"`
+	ToolCallID   string                 `json:"tool_call_id"`
+	Metadata     map[string]interface{} `json:"metadata"`
+	ToolCalls    interface{}            `json:"tool_calls"`
+	FunctionCall interface{}            `json:"function_call"`
 }
 
 func (r *UpdateMessageRequest) Validate() error {

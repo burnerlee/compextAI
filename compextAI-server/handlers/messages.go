@@ -104,9 +104,12 @@ func (s *Server) CreateMessage(w http.ResponseWriter, r *http.Request) {
 	messagesController := []*controllers.CreateMessage{}
 	for _, message := range messages.Messages {
 		messagesController = append(messagesController, &controllers.CreateMessage{
-			Content:  message.Content,
-			Role:     message.Role,
-			Metadata: message.Metadata,
+			Content:      message.Content,
+			Role:         message.Role,
+			ToolCallID:   message.ToolCallID,
+			Metadata:     message.Metadata,
+			ToolCalls:    message.ToolCalls,
+			FunctionCall: message.FunctionCall,
 		})
 	}
 	createdMessages, err := controllers.CreateMessages(s.DB, &controllers.CreateMessageRequest{
@@ -209,13 +212,26 @@ func (s *Server) UpdateMessage(w http.ResponseWriter, r *http.Request) {
 		responses.Error(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	toolCallsJsonBlob, err := json.Marshal(message.ToolCalls)
+	if err != nil {
+		responses.Error(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	functionCallJsonBlob, err := json.Marshal(message.FunctionCall)
+	if err != nil {
+		responses.Error(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	updatedMessage, err := models.UpdateMessage(s.DB, &models.Message{
 		Base: models.Base{
 			Identifier: messageID,
 		},
-		ContentMap: contentJsonBlob,
-		Role:       message.Role,
-		Metadata:   metadataJsonBlob,
+		ContentMap:   contentJsonBlob,
+		Role:         message.Role,
+		ToolCallID:   message.ToolCallID,
+		Metadata:     metadataJsonBlob,
+		ToolCalls:    toolCallsJsonBlob,
+		FunctionCall: functionCallJsonBlob,
 	})
 	if err != nil {
 		responses.Error(w, http.StatusInternalServerError, err.Error())
@@ -274,13 +290,16 @@ func convertMessageModelToResponse(message *models.Message) (*messageResponse, e
 		return nil, errors.New("content is required")
 	}
 	messagesResponse := &messageResponse{
-		Content:    contentMsg,
-		ThreadID:   message.ThreadID,
-		Identifier: message.Identifier,
-		Role:       message.Role,
-		Metadata:   message.Metadata,
-		CreatedAt:  message.CreatedAt,
-		UpdatedAt:  message.UpdatedAt,
+		Content:      contentMsg,
+		ThreadID:     message.ThreadID,
+		Identifier:   message.Identifier,
+		Role:         message.Role,
+		ToolCallID:   message.ToolCallID,
+		ToolCalls:    message.ToolCalls,
+		FunctionCall: message.FunctionCall,
+		Metadata:     message.Metadata,
+		CreatedAt:    message.CreatedAt,
+		UpdatedAt:    message.UpdatedAt,
 	}
 	return messagesResponse, nil
 }

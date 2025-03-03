@@ -134,16 +134,21 @@ func (g *Claude35) ConvertExecutionResponseToMessage(response interface{}) (*mod
 	}, nil
 }
 
+type claudeTool struct {
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	InputSchema json.RawMessage `json:"input_schema"`
+}
 type claude35ExecutionData struct {
-	APIKey         string                  `json:"api_key"`
-	Model          string                  `json:"model"`
-	Messages       []claude35Message       `json:"messages"`
-	Temperature    float64                 `json:"temperature"`
-	Timeout        int                     `json:"timeout"`
-	MaxTokens      int                     `json:"max_tokens"`
-	SystemPrompt   string                  `json:"system_prompt"`
-	ResponseFormat interface{}             `json:"response_format"`
-	Tools          []*models.ExecutionTool `json:"tools"`
+	APIKeys        map[string]string `json:"api_keys"`
+	Model          string            `json:"model"`
+	Messages       []claude35Message `json:"messages"`
+	Temperature    float64           `json:"temperature"`
+	Timeout        int               `json:"timeout"`
+	MaxTokens      int               `json:"max_tokens"`
+	SystemPrompt   string            `json:"system_prompt"`
+	ResponseFormat interface{}       `json:"response_format"`
+	Tools          []*claudeTool     `json:"tools"`
 }
 
 func (d *claude35ExecutionData) Validate() error {
@@ -197,8 +202,16 @@ func (g *Claude35) ExecuteThread(db *gorm.DB, user *models.User, messages []*mod
 		threadExecutionParamsTemplate.Timeout = DEFAULT_TIMEOUT
 	}
 
+	claudeTools := make([]*claudeTool, 0)
+	for _, tool := range tools {
+		claudeTools = append(claudeTools, &claudeTool{
+			Name:        tool.Name,
+			Description: tool.Description,
+			InputSchema: tool.InputSchema,
+		})
+	}
 	executionData := claude35ExecutionData{
-		APIKey:         user.AnthropicKey,
+		APIKeys:        map[string]string{g.owner: user.AnthropicKey},
 		Model:          g.model,
 		Messages:       modelMessages,
 		Temperature:    threadExecutionParamsTemplate.Temperature,
@@ -206,7 +219,7 @@ func (g *Claude35) ExecuteThread(db *gorm.DB, user *models.User, messages []*mod
 		Timeout:        threadExecutionParamsTemplate.Timeout,
 		SystemPrompt:   systemPrompt,
 		ResponseFormat: threadExecutionParamsTemplate.ResponseFormat,
-		Tools:          tools,
+		Tools:          claudeTools,
 	}
 
 	if err := executionData.Validate(); err != nil {

@@ -10,9 +10,9 @@ def get_client(api_key):
 def get_instructor_client(api_key):
     return instructor.from_anthropic(Anthropic(api_key=api_key))
 
-def chat_completion(api_key, system_prompt, model, messages, temperature, timeout, max_tokens, response_format, tools):
+def chat_completion(api_keys:dict, system_prompt, model, messages, temperature, timeout, max_tokens, response_format, tools):
     if response_format is None or response_format == {}:
-        client = get_client(api_key)
+        client = get_client(api_keys["anthropic"])
         response = client.messages.create(
         model=model,
             system=system_prompt if system_prompt else NOT_GIVEN,
@@ -24,7 +24,7 @@ def chat_completion(api_key, system_prompt, model, messages, temperature, timeou
         )
         llm_response = response.model_dump_json()
     else:
-        client = get_instructor_client(api_key)
+        client = get_instructor_client(api_keys["anthropic"])
         response_model = create_pydantic_model_from_dict(
             response_format["json_schema"]["name"],
             response_format["json_schema"]["schema"]

@@ -65,6 +65,7 @@ type ThreadExecutionParamsTemplate struct {
 	MaxOutputTokens     int             `json:"max_output_tokens"`
 	ResponseFormat      json.RawMessage `json:"response_format" gorm:"type:jsonb;default:'{}'"`
 	SystemPrompt        string          `json:"system_prompt"`
+	UseLiteLLM          bool            `json:"use_litellm" gorm:"default:true"`
 }
 
 func CreateThreadExecution(db *gorm.DB, threadExecution *ThreadExecution) (*ThreadExecution, error) {

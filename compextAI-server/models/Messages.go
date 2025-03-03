@@ -11,12 +11,15 @@ import (
 
 type Message struct {
 	Base
-	ContentMap json.RawMessage `json:"content_map" gorm:"not null;type:jsonb;default:'{}'"`
-	Content    string          `json:"content""`
-	Role       string          `json:"role" gorm:"not null"`
-	ThreadID   string          `json:"thread_id" gorm:"not null;index"`
-	Thread     Thread          `json:"thread" gorm:"foreignKey:ThreadID;references:Identifier"`
-	Metadata   json.RawMessage `json:"metadata" gorm:"type:jsonb;default:'{}'"`
+	ContentMap   json.RawMessage `json:"content_map" gorm:"not null;type:jsonb;default:'{}'"`
+	Content      string          `json:"content""`
+	ToolCallID   string          `json:"tool_call_id"`
+	Role         string          `json:"role" gorm:"not null"`
+	ThreadID     string          `json:"thread_id" gorm:"not null;index"`
+	Thread       Thread          `json:"thread" gorm:"foreignKey:ThreadID;references:Identifier"`
+	Metadata     json.RawMessage `json:"metadata" gorm:"type:jsonb;default:'{}'"`
+	ToolCalls    json.RawMessage `json:"tool_calls" gorm:"type:jsonb;default:'{}'"`
+	FunctionCall json.RawMessage `json:"function_call" gorm:"type:jsonb;default:'{}'"`
 
 	// Implement support for tool calls and function calls later on
 	// ToolCalls []ToolCall        `json:"tool_calls"`

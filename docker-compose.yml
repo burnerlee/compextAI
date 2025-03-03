@@ -44,8 +44,20 @@ services:
     ports:
       - 8889:8889
     restart: always
+  redis:
+    image: redis:latest
+    command: ["redis-server", "--requirepass", "mysecretpassword"]
+    ports:
+      - 6379:6379
+    restart: always
+    volumes:
+      - redis-data:/data
+    networks:
+      - compextai-network
+    
 volumes:
   compextai-db-data:
+  redis-data:
 
 networks:
   compextai-network:

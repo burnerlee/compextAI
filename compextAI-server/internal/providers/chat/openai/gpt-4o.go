@@ -57,11 +57,13 @@ func (g *GPT4O) ConvertExecutionResponseToMessage(response interface{}) (*models
 }
 
 func (g *GPT4O) ExecuteThread(db *gorm.DB, user *models.User, messages []*models.Message, threadExecutionParamsTemplate *models.ThreadExecutionParamsTemplate, threadExecutionIdentifier string, tools []*models.ExecutionTool) (int, interface{}, error) {
-	return executeThread(db, user, messages, threadExecutionParamsTemplate, threadExecutionIdentifier, &executeParamConfigs{
+	return BaseExecuteThread(db, user, messages, threadExecutionParamsTemplate, threadExecutionIdentifier, &ExecuteParamConfigs{
 		Model:                      g.model,
 		ExecutorRoute:              g.executorRoute,
 		DefaultTemperature:         GPT4O_DEFAULT_TEMPERATURE,
 		DefaultMaxCompletionTokens: GPT4O_DEFAULT_MAX_COMPLETION_TOKENS,
 		DefaultTimeout:             GPT4O_DEFAULT_TIMEOUT,
-	}, tools)
+	}, tools, map[string]interface{}{
+		g.owner: user.OpenAIKey,
+	})
 }

@@ -14,9 +14,9 @@ def get_instructor_client(api_key):
         api_key=api_key
     ))
 
-def chat_completion(api_key:str, model:str, messages:list, temperature:float, timeout:int, max_completion_tokens:int, response_format:dict, tools:list[dict]):
+def chat_completion(api_keys:dict, model:str, messages:list, temperature:float, timeout:int, max_completion_tokens:int, response_format:dict, tools:list[dict]):
     if response_format is None or response_format == {}:
-        client = get_client(api_key)
+        client = get_client(api_keys["openai"])
         response = client.chat.completions.create(
             model=model,
             messages=messages,
@@ -27,7 +27,7 @@ def chat_completion(api_key:str, model:str, messages:list, temperature:float, ti
         )
         llm_response = response.model_dump_json()
     else:
-        client = get_instructor_client(api_key)
+        client = get_instructor_client(api_keys["openai"])
         response_model = create_pydantic_model_from_dict(
             response_format["json_schema"]["name"],
             response_format["json_schema"]["schema"]

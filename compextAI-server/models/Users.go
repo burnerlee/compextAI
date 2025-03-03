@@ -1,15 +1,22 @@
 package models
 
-import "gorm.io/gorm"
+import (
+	"encoding/json"
+
+	"gorm.io/gorm"
+)
 
 type User struct {
 	Base
-	Username     string `json:"username" gorm:"unique"`
-	Email        string `json:"email" gorm:"unique"`
-	Password     string `json:"password" gorm:"not null"`
-	APIToken     string `json:"api_token" gorm:"unique"`
-	OpenAIKey    string `json:"openai_key" gorm:"column:openai_key"`
-	AnthropicKey string `json:"anthropic_key" gorm:"column:anthropic_key"`
+	Username                  string          `json:"username" gorm:"unique"`
+	Email                     string          `json:"email" gorm:"unique"`
+	Password                  string          `json:"password" gorm:"not null"`
+	APIToken                  string          `json:"api_token" gorm:"unique"`
+	OpenAIKey                 string          `json:"openai_key" gorm:"column:openai_key"`
+	AnthropicKey              string          `json:"anthropic_key" gorm:"column:anthropic_key"`
+	AzureKey                  string          `json:"azure_key" gorm:"column:azure_key"`
+	AzureEndpoint             string          `json:"azure_endpoint" gorm:"column:azure_endpoint"`
+	GoogleServiceAccountCreds json.RawMessage `json:"google_service_account_creds" gorm:"column:google_service_account_creds; type:jsonb"`
 }
 
 func GetUserIDByAPIToken(db *gorm.DB, token string) (uint, error) {

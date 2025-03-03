@@ -9,6 +9,7 @@ import (
 	"github.com/burnerlee/compextAI/constants"
 	"github.com/burnerlee/compextAI/internal/logger"
 	"github.com/burnerlee/compextAI/internal/providers/chat"
+	"github.com/burnerlee/compextAI/internal/providers/chat/litellm"
 	"github.com/burnerlee/compextAI/models"
 	"gorm.io/gorm"
 )
@@ -25,10 +26,19 @@ func ExecuteThread(db *gorm.DB, req *ExecuteThreadRequest) (interface{}, error) 
 		threadExecutionParamsTemplate.SystemPrompt = req.ThreadExecutionSystemPrompt
 	}
 
-	chatProvider, err := chat.GetChatCompletionsProvider(threadExecutionParamsTemplate.Model)
-	if err != nil {
-		logger.GetLogger().Errorf("Error getting chat provider: %s: %v", threadExecutionParamsTemplate.Model, err)
-		return nil, err
+	var chatProvider chat.ChatCompletionsProvider
+	if threadExecutionParamsTemplate.UseLiteLLM {
+		chatProvider, err = chat.GetChatCompletionsProvider(litellm.LITELLM_IDENTIFIER)
+		if err != nil {
+			logger.GetLogger().Errorf("Error getting litellm chat provider: %v", err)
+			return nil, err
+		}
+	} else {
+		chatProvider, err = chat.GetChatCompletionsProvider(threadExecutionParamsTemplate.Model)
+		if err != nil {
+			logger.GetLogger().Errorf("Error getting chat provider: %s: %v", threadExecutionParamsTemplate.Model, err)
+			return nil, err
+		}
 	}
 
 	var messages []*models.Message
@@ -93,6 +103,7 @@ func ExecuteThread(db *gorm.DB, req *ExecuteThreadRequest) (interface{}, error) 
 			logger.GetLogger().Errorf("Error marshalling execution message content: %v", err)
 			return nil, err
 		}
+
 		if err := models.CreateMessage(db, &models.Message{
 			ThreadID:   req.ThreadID,
 			Role:       "execution",
@@ -137,16 +148,6 @@ func ExecuteThread(db *gorm.DB, req *ExecuteThreadRequest) (interface{}, error) 
 }
 
 func handleThreadExecutionError(db *gorm.DB, threadExecution *models.ThreadExecution, execErr error) {
-	errJson, jsonErr := json.Marshal(struct {
-		Error string `json:"error"`
-	}{
-		Error: execErr.Error(),
-	})
-	if jsonErr != nil {
-		logger.GetLogger().Errorf("Error marshalling error: %v", jsonErr)
-		return
-	}
-
 	executionTime := time.Since(threadExecution.CreatedAt).Seconds()
 
 	updatedThreadExecution := models.ThreadExecution{
@@ -155,10 +156,20 @@ func handleThreadExecutionError(db *gorm.DB, threadExecution *models.ThreadExecu
 			Identifier: threadExecution.Identifier,
 		},
 		Status:        models.ThreadExecutionStatus_FAILED,
-		Output:        errJson,
 		ExecutionTime: uint(executionTime),
 	}
+	errJson, jsonErr := json.Marshal(struct {
+		Error string `json:"error"`
+	}{
+		Error: execErr.Error(),
+	})
+	if jsonErr != nil {
+		logger.GetLogger().Errorf("Error marshalling error: %v", jsonErr)
+		models.UpdateThreadExecution(db, &updatedThreadExecution)
+		return
+	}
 
+	updatedThreadExecution.Output = errJson
 	models.UpdateThreadExecution(db, &updatedThreadExecution)
 }
 

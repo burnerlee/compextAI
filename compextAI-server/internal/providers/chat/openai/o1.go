@@ -64,11 +64,13 @@ func (g *O1) ExecuteThread(db *gorm.DB, user *models.User, messages []*models.Me
 		return -1, nil, err
 	}
 
-	return executeThread(db, user, messages, threadExecutionParamsTemplate, threadExecutionIdentifier, &executeParamConfigs{
+	return BaseExecuteThread(db, user, messages, threadExecutionParamsTemplate, threadExecutionIdentifier, &ExecuteParamConfigs{
 		Model:                      g.model,
 		ExecutorRoute:              g.executorRoute,
 		DefaultTemperature:         O1_PREVIEW_DEFAULT_TEMPERATURE,
 		DefaultMaxCompletionTokens: O1_PREVIEW_DEFAULT_MAX_COMPLETION_TOKENS,
 		DefaultTimeout:             O1_PREVIEW_DEFAULT_TIMEOUT,
-	}, tools)
+	}, tools, map[string]interface{}{
+		g.owner: user.OpenAIKey,
+	})
 }

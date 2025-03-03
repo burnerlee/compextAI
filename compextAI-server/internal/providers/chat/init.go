@@ -2,6 +2,7 @@ package chat
 
 import (
 	"github.com/burnerlee/compextAI/internal/providers/chat/anthropic"
+	"github.com/burnerlee/compextAI/internal/providers/chat/litellm"
 	"github.com/burnerlee/compextAI/internal/providers/chat/openai"
 )
 
@@ -13,6 +14,8 @@ const (
 	O1PREVIEW ChatCompletionsProvider_Enum = openai.O1_PREVIEW_IDENTIFIER
 	O1MINI    ChatCompletionsProvider_Enum = openai.O1_MINI_IDENTIFIER
 	O1        ChatCompletionsProvider_Enum = openai.O1_IDENTIFIER
+	O3MINI    ChatCompletionsProvider_Enum = openai.O3_MINI_IDENTIFIER
+	LITELLM   ChatCompletionsProvider_Enum = litellm.LITELLM_IDENTIFIER
 )
 
 func init() {
@@ -26,7 +29,11 @@ func init() {
 	chatCompletionsProviderRegistry.register(openai.NewGPT4())
 	chatCompletionsProviderRegistry.register(openai.NewO1Preview())
 	chatCompletionsProviderRegistry.register(openai.NewO1())
+	chatCompletionsProviderRegistry.register(openai.NewO3Mini())
 
 	// anthropic providers
 	chatCompletionsProviderRegistry.register(anthropic.NewClaude35())
+
+	// litellm provider
+	chatCompletionsProviderRegistry.register(litellm.NewLitellm())
 }

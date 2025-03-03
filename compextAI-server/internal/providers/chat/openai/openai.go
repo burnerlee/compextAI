@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	openaiAllowedRoles = []string{"user", "assistant", "system"}
+	openaiAllowedRoles = []string{"user", "assistant", "system", "tool"}
 )
 
 func validateMessage(message *models.Message) error {
@@ -27,10 +27,13 @@ func validateMessage(message *models.Message) error {
 	return nil
 }
 
-type openaiMessage struct {
-	Role     string                 `json:"role"`
-	Content  interface{}            `json:"content"`
-	Metadata map[string]interface{} `json:"metadata"`
+type OpenaiMessage struct {
+	Role         string                 `json:"role"`
+	Content      interface{}            `json:"content"`
+	ToolCallID   string                 `json:"tool_call_id"`
+	Metadata     map[string]interface{} `json:"metadata"`
+	ToolCalls    interface{}            `json:"tool_calls"`
+	FunctionCall interface{}            `json:"function_call"`
 }
 
 func convertMessageToProviderFormat(message *models.Message) (interface{}, error) {
@@ -50,10 +53,23 @@ func convertMessageToProviderFormat(message *models.Message) (interface{}, error
 		return nil, fmt.Errorf("content map does not contain 'content' key")
 	}
 
-	return openaiMessage{
-		Role:     message.Role,
-		Content:  content,
-		Metadata: metadata,
+	var toolCalls interface{}
+	if err := json.Unmarshal(message.ToolCalls, &toolCalls); err != nil {
+		return nil, err
+	}
+
+	var functionCall interface{}
+	if err := json.Unmarshal(message.FunctionCall, &functionCall); err != nil {
+		return nil, err
+	}
+
+	return OpenaiMessage{
+		Role:         message.Role,
+		ToolCallID:   message.ToolCallID,
+		Content:      content,
+		Metadata:     metadata,
+		ToolCalls:    toolCalls,
+		FunctionCall: functionCall,
 	}, nil
 }
 
@@ -107,22 +123,33 @@ func convertExecutionResponseToMessage(response interface{}) (*models.Message, e
 	}, nil
 }
 
+type openaiFunction struct {
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Parameters  json.RawMessage `json:"parameters"`
+}
+
+type openaiTool struct {
+	Type     string         `json:"type"`
+	Function openaiFunction `json:"function"`
+}
+
 type openaiExecutionData struct {
-	APIKey              string                  `json:"api_key"`
-	Model               string                  `json:"model"`
-	Messages            []openaiMessage         `json:"messages"`
-	Temperature         float64                 `json:"temperature"`
-	MaxCompletionTokens int                     `json:"max_completion_tokens"`
-	Timeout             int                     `json:"timeout"`
-	ResponseFormat      interface{}             `json:"response_format"`
-	Tools               []*models.ExecutionTool `json:"tools"`
+	APIKeys             map[string]interface{} `json:"api_keys"`
+	Model               string                 `json:"model"`
+	Messages            []OpenaiMessage        `json:"messages"`
+	Temperature         float64                `json:"temperature"`
+	MaxCompletionTokens int                    `json:"max_completion_tokens"`
+	Timeout             int                    `json:"timeout"`
+	ResponseFormat      interface{}            `json:"response_format"`
+	Tools               []*openaiTool          `json:"tools"`
 }
 
 func (d *openaiExecutionData) Validate() error {
 	return nil
 }
 
-type executeParamConfigs struct {
+type ExecuteParamConfigs struct {
 	Model                      string
 	ExecutorRoute              string
 	DefaultTemperature         float64
@@ -170,10 +197,10 @@ func filterNonSystemMessages(messages []*models.Message) []*models.Message {
 	return nonSystemMessages
 }
 
-func executeThread(db *gorm.DB, user *models.User, messages []*models.Message, threadExecutionParamsTemplate *models.ThreadExecutionParamsTemplate, threadExecutionIdentifier string, configs *executeParamConfigs, tools []*models.ExecutionTool) (int, interface{}, error) {
+func BaseExecuteThread(db *gorm.DB, user *models.User, messages []*models.Message, threadExecutionParamsTemplate *models.ThreadExecutionParamsTemplate, threadExecutionIdentifier string, configs *ExecuteParamConfigs, tools []*models.ExecutionTool, apiKeys map[string]interface{}) (int, interface{}, error) {
 	systemPrompt := ""
 
-	modelMessages := make([]openaiMessage, 0)
+	modelMessages := make([]OpenaiMessage, 0)
 	for _, message := range messages {
 		modelMessage, err := convertMessageToProviderFormat(message)
 		if err != nil {
@@ -198,7 +225,7 @@ func executeThread(db *gorm.DB, user *models.User, messages []*models.Message, t
 			systemPrompt = systemPromptStr
 			continue
 		}
-		modelMessages = append(modelMessages, modelMessage.(openaiMessage))
+		modelMessages = append(modelMessages, modelMessage.(OpenaiMessage))
 	}
 
 	// override the system prompt if it is provided for execution
@@ -208,7 +235,7 @@ func executeThread(db *gorm.DB, user *models.User, messages []*models.Message, t
 
 	// add the system prompt to the beginning of the messages thread if it is provided
 	if systemPrompt != "" {
-		modelMessages = append([]openaiMessage{{
+		modelMessages = append([]OpenaiMessage{{
 			Role:    "system",
 			Content: systemPrompt,
 		}}, modelMessages...)
@@ -224,15 +251,26 @@ func executeThread(db *gorm.DB, user *models.User, messages []*models.Message, t
 		threadExecutionParamsTemplate.Timeout = configs.DefaultTimeout
 	}
 
+	openaiTools := make([]*openaiTool, 0)
+	for _, tool := range tools {
+		openaiTools = append(openaiTools, &openaiTool{
+			Type: "function",
+			Function: openaiFunction{
+				Name:        tool.Name,
+				Description: tool.Description,
+				Parameters:  tool.InputSchema,
+			},
+		})
+	}
 	executionData := openaiExecutionData{
-		APIKey:              user.OpenAIKey,
+		APIKeys:             apiKeys,
 		Model:               configs.Model,
 		Messages:            modelMessages,
 		Temperature:         threadExecutionParamsTemplate.Temperature,
 		MaxCompletionTokens: threadExecutionParamsTemplate.MaxCompletionTokens,
 		Timeout:             threadExecutionParamsTemplate.Timeout,
 		ResponseFormat:      threadExecutionParamsTemplate.ResponseFormat,
-		Tools:               tools,
+		Tools:               openaiTools,
 	}
 
 	if err := executionData.Validate(); err != nil {

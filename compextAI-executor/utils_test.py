@@ -46,4 +46,4 @@ schema = {
 
 model = create_pydantic_model_from_dict(schema["json_schema"]["name"], schema["json_schema"]["schema"])
 # print all the fields
-print(model.model_fields)
+# print(model.model_fields)
